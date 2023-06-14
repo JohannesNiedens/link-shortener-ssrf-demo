@@ -1,46 +1,92 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const ShortUrl = require("./models/shortUrl");
 const fetch = require("node-fetch");
 const cors = require("cors");
+
 const app = express();
-
 app.use(cors());
+app.use(express.json());
 
-mongoose.connect("mongodb://localhost/urlshortener", {
+mongoose.connect("mongodb://localhost:27017/shortener", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 });
 
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
+const Link = mongoose.model("Link", {
+    name: String,
+    url: String,
+});
 
-app.post("/shorten", async (req, res) => {
+app.post("/links", async (req, res) => {
+    const { name, url } = req.body;
+
+    // Make a request to the provided URL to verify it's valid
     try {
-        // Fetch the URL contents to validate the URL.
-        const response = await fetch(req.body.fullUrl);
-
-        if (response.ok) {
-            const url = new ShortUrl({ full: req.body.fullUrl });
-            await url.save();
-            res.json({ short: url.short });
-        } else {
-            res.status(400).json({ error: "Invalid URL" });
-        }
+        await fetch(url, { method: "HEAD" });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error validating URL" });
+        return res.status(400).json({ message: "Invalid URL provided." });
+    }
+
+    const link = new Link({ name, url });
+    await link.save();
+
+    res.json({ message: "Link created!", link });
+});
+
+app.get("/links", async (req, res) => {
+    const links = await Link.find();
+    res.json(links);
+});
+
+app.get("/links/:id/content", async (req, res) => {
+    const link = await Link.findById(req.params.id);
+
+    if (!link) {
+        return res.status(404).json({ message: "Link not found." });
+    }
+
+    try {
+        const response = await fetch(link.url);
+        const content = await response.text();
+
+        res.json({ content });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch link content." });
     }
 });
 
-app.get("/:shortUrl", async (req, res) => {
-    const shortUrl = await ShortUrl.findOne({ short: req.params.shortUrl });
+app.delete("/links/:id", async (req, res) => {
+    const link = await Link.findById(req.params.id);
 
-    if (shortUrl) {
-        res.redirect(shortUrl.full);
-    } else {
-        res.status(404).json({ error: "Short URL not found" });
+    if (!link) {
+        return res.status(404).json({ message: "Link not found." });
+    }
+
+    await link.deleteOne();
+
+    res.json({ message: "Link deleted!" });
+});
+
+app.get("/links/:id/download", async (req, res) => {
+    const link = await Link.findById(req.params.id);
+
+    if (!link) {
+        return res.status(404).json({ message: "Link not found." });
+    }
+
+    try {
+        const response = await fetch(link.url);
+        const content = await response.text();
+
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename=${link.name}.html`
+        );
+        res.setHeader("Content-Type", "text/html");
+        res.send(content);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch link content." });
     }
 });
 
-app.listen(5000);
+app.listen(5000, () => console.log("Server started on port 5000"));
