@@ -1,0 +1,22 @@
+.links {
+    padding: 0.5rem;
+    background-color: rgb(31, 31, 31);
+    margin: 2rem auto;
+    width: 64rem;
+    max-width: 95%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.links-list {
+    list-style: none;
+    padding: 0;
+    width: 60rem;
+    max-width: 95%;
+}
+
+.links-list__fallback {
+    color: white;
+    text-align: center;
+}

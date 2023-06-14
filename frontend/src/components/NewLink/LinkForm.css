@@ -1,0 +1,23 @@
+.new-link__controls {
+    margin-bottom: 1rem;
+}
+
+.new-link__control {
+    margin-bottom: 0.5rem;
+}
+
+.new-link__controls .new-link__control label {
+    font-weight: bold;
+    font-size: 1.25rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.new-link__controls .new-link__control input {
+    width: 38rem;
+    box-sizing: border-box;
+}
+
+.new-link__actions {
+    text-align: right;
+}
