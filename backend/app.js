@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const fetch = require("node-fetch");
 const cors = require("cors");
+const fs = require("fs").promises;
 
 const app = express();
 app.use(cors());
@@ -20,13 +21,7 @@ const Link = mongoose.model("Link", {
 app.post("/links", async (req, res) => {
     const { name, url } = req.body;
 
-    // Make a request to the provided URL to verify it's valid
-    try {
-        await fetch(url, { method: "HEAD" });
-    } catch (error) {
-        return res.status(400).json({ message: "Invalid URL provided." });
-    }
-
+    // For demonstration purposes we are not validating the url
     const link = new Link({ name, url });
     await link.save();
 
@@ -45,9 +40,14 @@ app.get("/links/:id/content", async (req, res) => {
         return res.status(404).json({ message: "Link not found." });
     }
 
+    let content;
     try {
-        const response = await fetch(link.url);
-        const content = await response.text();
+        if (link.url.startsWith("file://")) {
+            content = await fs.readFile(link.url.substring(7), "utf8");
+        } else {
+            const response = await fetch(link.url);
+            content = await response.text();
+        }
 
         res.json({ content });
     } catch (error) {
@@ -65,28 +65,6 @@ app.delete("/links/:id", async (req, res) => {
     await link.deleteOne();
 
     res.json({ message: "Link deleted!" });
-});
-
-app.get("/links/:id/download", async (req, res) => {
-    const link = await Link.findById(req.params.id);
-
-    if (!link) {
-        return res.status(404).json({ message: "Link not found." });
-    }
-
-    try {
-        const response = await fetch(link.url);
-        const content = await response.text();
-
-        res.setHeader(
-            "Content-Disposition",
-            `attachment; filename=${link.name}.html`
-        );
-        res.setHeader("Content-Type", "text/html");
-        res.send(content);
-    } catch (error) {
-        res.status(500).json({ message: "Failed to fetch link content." });
-    }
 });
 
 app.listen(5000, () => console.log("Server started on port 5000"));
