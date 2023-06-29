@@ -17,8 +17,8 @@ const Links = (props) => {
             <ul className="links-list">
                 {props.items.map((link) => (
                     <LinkItem
-                        key={link._id}
-                        id={link._id}
+                        key={link.id}
+                        id={link.id}
                         name={link.name}
                         url={link.url}
                         onDelete={props.onDeleteLink}
