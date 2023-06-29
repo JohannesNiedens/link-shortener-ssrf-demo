@@ -1,43 +1,55 @@
 const express = require("express");
-const fetch = require("node-fetch");
+const axios = require('axios');
+const fs = require('fs').promises;
 const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-let links = [];  // Using array to store links
-let idCounter = 0;  // Counter to generate unique ids
+let idCounter = 0;
+const links = new Map();
+
+app.get("/links", (req, res) => {
+    const linksArray = Array.from(links.values());
+    res.json(linksArray);
+});
 
 app.post("/links", async (req, res) => {
     const { name, url } = req.body;
+    const id = ++idCounter;
 
-    try {
-        await fetch(url, { method: "HEAD" });
-    } catch (error) {
-        return res.status(400).json({ message: "Invalid URL provided." });
+    if (!url.startsWith('file://')) {
+        try {
+            await axios.head(url);
+        } catch (error) {
+            return res.status(400).json({ message: "Invalid URL provided." });
+        }
     }
 
-    const link = { id: idCounter++, name, url };
-    links.push(link);
+    const link = { id, name, url };
+    links.set(id, link);
 
     res.json({ message: "Link created!", link });
 });
 
-app.get("/links", async (req, res) => {
-    res.json(links);
-});
-
 app.get("/links/:id/content", async (req, res) => {
-    const link = links.find(link => link.id == req.params.id);
+    const link = links.get(Number(req.params.id));
 
     if (!link) {
         return res.status(404).json({ message: "Link not found." });
     }
 
     try {
-        const response = await fetch(link.url);
-        const content = await response.text();
+        let content;
+        if (link.url.startsWith('file://')) {
+            // If it's a file URL, use the fs module to read the file.
+            content = await fs.readFile(link.url.slice(7), 'utf8');
+        } else {
+            // If it's not a file URL, fetch it with Axios as before.
+            const response = await axios.get(link.url);
+            content = response.data;
+        }
 
         res.json({ content });
     } catch (error) {
@@ -45,38 +57,15 @@ app.get("/links/:id/content", async (req, res) => {
     }
 });
 
-app.delete("/links/:id", async (req, res) => {
-    const index = links.findIndex(link => link.id == req.params.id);
-
-    if (index === -1) {
+app.delete("/links/:id", (req, res) => {
+    const id = Number(req.params.id);
+    
+    if (!links.has(id)) {
         return res.status(404).json({ message: "Link not found." });
     }
 
-    links.splice(index, 1);
-
+    links.delete(id);
     res.json({ message: "Link deleted!" });
-});
-
-app.get("/links/:id/download", async (req, res) => {
-    const link = links.find(link => link.id == req.params.id);
-
-    if (!link) {
-        return res.status(404).json({ message: "Link not found." });
-    }
-
-    try {
-        const response = await fetch(link.url);
-        const content = await response.text();
-
-        res.setHeader(
-            "Content-Disposition",
-            `attachment; filename=${link.name}.html`
-        );
-        res.setHeader("Content-Type", "text/html");
-        res.send(content);
-    } catch (error) {
-        res.status(500).json({ message: "Failed to fetch link content." });
-    }
 });
 
 app.listen(5000, () => console.log("Server started on port 5000"));
